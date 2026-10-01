@@ -124,18 +124,25 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-border bg-background/95 px-4 backdrop-blur sm:px-6">
+      <header className="sticky top-0 z-30 flex h-14 items-center justify-between gap-4 border-b border-border bg-background px-4 sm:px-6">
         <div className="flex min-w-0 items-center gap-3">
           <Link
             to="/"
-            className="shrink-0 text-sm font-semibold uppercase tracking-[0.3em] text-foreground transition-opacity hover:opacity-70"
+            className="flex shrink-0 items-center gap-2.5 transition-opacity hover:opacity-70"
           >
-            Astra Intel
+            <span
+              className="flex size-5 items-center justify-center border border-foreground"
+              aria-hidden="true"
+            >
+              <span className="size-1.5 bg-foreground" />
+            </span>
+            <span className="text-sm font-semibold uppercase tracking-[0.3em] text-foreground">
+              Astra Intel
+            </span>
           </Link>
-          <span className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />
-          <span className="hidden truncate text-xs text-muted-foreground sm:block">
-            AI-Powered Defence Document Intelligence
-          </span>
+          <span className="hidden h-4 w-px bg-border sm:block" aria-hidden="true" />              <span className="hidden truncate font-mono text-[11px] text-muted-foreground sm:block">
+                AI-Powered Defence Document Intelligence
+              </span>
         </div>
 
         <div className="flex items-center gap-3">
@@ -182,13 +189,19 @@ export default function Dashboard() {
                       type="button"
                       onClick={() => setView(item.id)}
                       className={cn(
-                        "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm transition-colors",
+                        "relative flex w-full cursor-pointer items-center gap-2.5 rounded-sm px-3 py-2 text-sm transition-colors",
                         active
-                          ? "bg-accent font-medium text-accent-foreground"
-                          : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+                          ? "bg-muted font-medium text-foreground"
+                          : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                       )}
                       aria-current={active ? "page" : undefined}
                     >
+                      {active && (
+                        <span
+                          className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 bg-foreground"
+                          aria-hidden="true"
+                        />
+                      )}
                       <Icon className="size-4" />
                       {item.label}
                     </button>
@@ -222,7 +235,7 @@ export default function Dashboard() {
         </main>
 
         {/* Source panel */}
-        <aside className="border-t border-border lg:overflow-y-auto lg:border-t-0 xl:border-l">
+        <aside className="border-t border-border lg:overflow-y-auto lg:border-t-0 lg:border-l">
           <SourcePanel
             activeSource={activeSource}
             latestSources={latestSources}

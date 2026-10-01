@@ -97,7 +97,7 @@ export function CompareView({ documents }: { documents: DocumentDoc[] }) {
     <div className="flex flex-col gap-6 px-4 py-6 sm:px-6">
       <section>
         <span className="label-xs">Document comparison</span>
-        <h2 className="mt-2 text-lg font-bold tracking-tight">
+        <h2 className="mt-2.5 text-xl font-bold tracking-tight">
           Compare two documents
         </h2>
         <p className="mt-1.5 max-w-2xl text-xs leading-5 text-muted-foreground">
@@ -171,7 +171,7 @@ export function CompareView({ documents }: { documents: DocumentDoc[] }) {
       </section>
 
       {result && (
-        <section className="overflow-x-auto rounded-md border border-border/70">
+        <section className="overflow-x-auto rounded-md border border-border bg-card">
           <table className="w-full min-w-[640px] border-collapse text-left align-top">
             <thead>
               <tr className="border-b border-border">

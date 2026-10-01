@@ -90,9 +90,11 @@ export function UploadZone({
 
   return (
     <section aria-label="Upload documents">
-      <div className="mb-2 flex items-center justify-between">
+      <div className="mb-2.5 flex items-center justify-between gap-2">
         <h2 className="label-xs">Upload</h2>
-        <span className="label-xs tracking-normal normal-case">PDF · max 15 MB</span>
+        <span className="rounded-sm border border-border px-1.5 py-1 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground">
+          PDF · max 15 MB
+        </span>
       </div>
 
       <div
@@ -108,9 +110,9 @@ export function UploadZone({
           void handleFiles(Array.from(event.dataTransfer.files ?? []));
         }}
         className={cn(
-          "rounded-md border border-dashed border-border px-3 py-5 text-center transition-colors",
-          dragging && "border-foreground bg-accent/60",
-          busy && "border-solid bg-muted/40",
+          "rounded-md border border-dashed border-border bg-card/60 px-3 py-6 text-center transition-colors",
+          dragging && "border-foreground bg-muted",
+          busy && "border-solid bg-card",
         )}
       >
         {busy ? (
@@ -128,13 +130,19 @@ export function UploadZone({
           </div>
         ) : (
           <div className="space-y-3">
-            <Upload className="mx-auto size-4 text-muted-foreground" />
-            <p className="text-xs leading-5 text-muted-foreground">
-              Drag a PDF here
-            </p>
+            <span className="mx-auto flex size-8 items-center justify-center border border-border text-foreground">
+              <Upload className="size-4" />
+            </span>
+            <div className="space-y-0.5">
+              <p className="text-xs font-medium text-foreground">
+                Drag a PDF here
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                PDF only · up to 15 MB per file
+              </p>
+            </div>
             <Button
               type="button"
-              variant="outline"
               size="sm"
               className="w-full"
               onClick={() => inputRef.current?.click()}

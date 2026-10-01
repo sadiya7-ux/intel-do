@@ -36,14 +36,14 @@ export function DocumentLibrary({
 
   if (documents.length === 0) {
     return (
-      <p className="rounded-md border border-border/70 px-3 py-4 text-xs leading-5 text-muted-foreground">
+      <p className="rounded-md border border-dashed border-border bg-card/50 px-3 py-4 text-xs leading-5 text-muted-foreground">
         No documents yet. Upload a PDF to build your library.
       </p>
     );
   }
 
   return (
-    <ul className="divide-y divide-border/70 rounded-md border border-border/70">
+    <ul className="divide-y divide-border/60 overflow-hidden rounded-md border border-border bg-card">
       {documents.map((document) => {
         const status = statusMeta(document.status);
         const selected = selectedIds.includes(document._id);
@@ -54,8 +54,8 @@ export function DocumentLibrary({
             key={document._id}
             className={cn(
               "group flex items-start gap-2 px-2.5 py-2.5 transition-colors",
-              focused && "bg-accent/70",
-              !focused && "hover:bg-accent/40",
+              focused && "bg-muted",
+              !focused && "hover:bg-muted/50",
             )}
           >
             <Checkbox
@@ -72,7 +72,12 @@ export function DocumentLibrary({
               className="min-w-0 flex-1 cursor-pointer text-left"
               title={document.fileName}
             >
-              <span className="block truncate text-xs font-medium leading-5">
+              <span
+                className={cn(
+                  "block truncate text-xs leading-5",
+                  focused ? "font-semibold text-foreground" : "font-medium text-foreground",
+                )}
+              >
                 {document.fileName}
               </span>
               <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-muted-foreground">

@@ -36,7 +36,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
     <>
       {parts.map((part, index) =>
         lookup.has(part.toLowerCase()) ? (
-          <mark key={index} className="bg-accent text-accent-foreground">
+          <mark key={index} className="bg-foreground/15 font-medium text-foreground">
             {part}
           </mark>
         ) : (
@@ -100,7 +100,7 @@ export function SearchView({
     <div className="flex flex-col gap-6 px-4 py-6 sm:px-6">
       <section>
         <span className="label-xs">Semantic search</span>
-        <h2 className="mt-2 text-lg font-bold tracking-tight">
+        <h2 className="mt-2.5 text-xl font-bold tracking-tight">
           Search across documents
         </h2>
         <p className="mt-1.5 max-w-2xl text-xs leading-5 text-muted-foreground">
@@ -156,15 +156,15 @@ export function SearchView({
 
         {results === null ? (
           <p className="mt-3 text-xs leading-5 text-muted-foreground">
-            Results appear here with the document name, page number, matching
-            passage and relevance order.
+            Results appear here as document &rarr; page &rarr; matching passage,
+            ranked by relevance.
           </p>
         ) : results.length === 0 ? (
           <p className="mt-3 text-sm text-muted-foreground">
             No relevant information was found in the uploaded documents.
           </p>
         ) : (
-          <ul className="mt-3 divide-y divide-border/70 rounded-md border border-border/70">
+          <ul className="mt-3 divide-y divide-border/60 overflow-hidden rounded-md border border-border bg-card">
             {results.map((hit) => (
               <li key={`${hit.documentId}-${hit.pageNumber}-${hit.rank}`}>
                 <button
@@ -176,23 +176,23 @@ export function SearchView({
                       pageNumber: hit.pageNumber,
                     })
                   }
-                  className="flex w-full cursor-pointer flex-col gap-2 px-4 py-3.5 text-left transition-colors hover:bg-accent/40"
+                  className="flex w-full cursor-pointer flex-col gap-2 px-4 py-3.5 text-left transition-colors hover:bg-muted/60"
                 >
-                  <span className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
-                    <span className="font-mono text-muted-foreground">
-                      #{hit.rank}
+                  <span className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+                    <span className="w-5 shrink-0 font-mono text-[11px] text-muted-foreground">
+                      {String(hit.rank).padStart(2, "0")}
                     </span>
-                    <span className="truncate font-medium text-foreground">
+                    <span className="truncate text-sm font-medium text-foreground">
                       {hit.fileName}
                     </span>
-                    <span className="rounded-sm border border-border px-1.5 py-0.5 font-mono text-muted-foreground">
+                    <span className="shrink-0 rounded-sm border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
                       Page {hit.pageNumber}
                     </span>
-                    <span className="ml-auto font-mono text-muted-foreground">
-                      score {hit.score.toFixed(3)}
+                    <span className="ml-auto shrink-0 font-mono text-[11px] text-muted-foreground">
+                      rel {hit.score.toFixed(3)}
                     </span>
                   </span>
-                  <span className="line-clamp-3 text-sm leading-6 text-muted-foreground">
+                  <span className="line-clamp-3 pl-8 text-[13px] leading-6 text-muted-foreground">
                     <Highlighted text={hit.snippet} query={query} />
                   </span>
                 </button>

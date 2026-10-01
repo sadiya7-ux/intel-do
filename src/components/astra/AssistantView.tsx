@@ -187,7 +187,7 @@ export function AssistantView({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <span className="label-xs">Document</span>
-            <h2 className="mt-2 break-words text-lg font-bold tracking-tight">
+            <h2 className="mt-2.5 break-words text-xl font-bold tracking-tight">
               {focused ? focused.fileName : "Select a document"}
             </h2>
             <p className="mt-1.5 text-xs text-muted-foreground">
@@ -237,7 +237,7 @@ export function AssistantView({
 
       {/* ---------------- Summary ---------------- */}
       {focused && (
-        <section className="rounded-md border border-border/70">
+        <section className="overflow-hidden rounded-md border border-border bg-card">
           <div className="flex items-center justify-between gap-3 border-b border-border/70 px-4 py-3">
             <span className="label-xs">Summary</span>
             <Button
@@ -285,7 +285,7 @@ export function AssistantView({
 
       {/* ---------------- Conversation ---------------- */}
       <section className="flex min-w-0 flex-col">
-        <div className="flex items-center justify-between gap-3 border-b border-border/70 pb-3">
+        <div className="flex items-center justify-between gap-3 border-b border-border pb-3">
           <span className="label-xs">ASTRA INTEL Assistant</span>
           <Button
             type="button"
@@ -300,7 +300,7 @@ export function AssistantView({
 
         <div
           ref={scrollRef}
-          className="h-[44vh] min-h-[320px] overflow-y-auto divide-y divide-border/70"
+          className="h-[44vh] min-h-[320px] overflow-y-auto divide-y divide-border/60"
         >
           {transcript.length === 0 && !asking ? (
             <div className="flex h-full flex-col items-center justify-center px-6 text-center">

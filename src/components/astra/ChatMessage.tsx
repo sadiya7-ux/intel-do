@@ -33,7 +33,7 @@ function renderContent(
           type="button"
           onClick={() => onOpenSource(source)}
           title={`Open ${source.fileName}, page ${source.pageNumber}`}
-          className="mx-0.5 inline-flex cursor-pointer items-center rounded-sm border border-border bg-muted/70 px-1.5 py-px font-mono text-[11px] leading-4 text-foreground transition-colors hover:border-foreground hover:bg-accent"
+          className="mx-0.5 inline-flex cursor-pointer items-center rounded-sm border border-border bg-muted px-1.5 py-px font-mono text-[11px] leading-4 text-foreground transition-colors hover:border-foreground hover:bg-foreground hover:text-background"
         >
           Page {source.pageNumber}
         </button>
@@ -61,7 +61,7 @@ function orderByCitation(content: string, sources: SourceDto[]): SourceDto[] {
   return ordered;
 }
 
-/** Primary source card: document, page and a short (1-3 line) excerpt. */
+/** Primary source: document, page and a short (1-3 line) excerpt. */
 function PrimarySource({
   source,
   onOpenSource,
@@ -70,13 +70,13 @@ function PrimarySource({
   onOpenSource: (source: SourceDto) => void;
 }) {
   return (
-    <div className="rounded-md border border-border/70 bg-card/70 px-3.5 py-3">
+    <div>
       <div className="flex items-center gap-2 text-xs">
         <FileText className="size-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate font-medium text-foreground">
           {source.fileName}
         </span>
-        <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
+        <span className="shrink-0 rounded-sm border border-border px-1.5 py-0.5 font-mono text-[11px] text-muted-foreground">
           Page {source.pageNumber}
         </span>
       </div>
@@ -86,7 +86,7 @@ function PrimarySource({
       <button
         type="button"
         onClick={() => onOpenSource(source)}
-        className="mt-2.5 flex cursor-pointer items-center gap-1.5 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="mt-3 flex cursor-pointer items-center gap-1.5 rounded-sm border border-border px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:border-foreground/40 hover:text-foreground"
       >
         View source
         <ExternalLink className="size-3" aria-hidden="true" />
@@ -120,7 +120,7 @@ export function ChatMessage({
 
   return (
     <article
-      className={cn("px-4 py-5", !first && "border-t border-border/70")}
+      className={cn("px-4 py-5", !first && "border-t border-border/60")}
     >
       <header className="flex items-baseline justify-between gap-3">
         <span className="label-xs">{isAssistant ? "ASTRA" : "You"}</span>
@@ -132,87 +132,96 @@ export function ChatMessage({
         </time>
       </header>
 
-      <div
-        className={cn(
-          "mt-2.5 whitespace-pre-wrap break-words text-sm leading-7",
-          notFound && "italic text-muted-foreground",
-        )}
-      >
-        {isAssistant
-          ? renderContent(message.content, sources, onOpenSource)
-          : message.content}
-      </div>
-
-      {isAssistant && notFound && (
-        <p className="mt-2 text-xs leading-5 text-muted-foreground">
-          No relevant passage was found in the selected documents. Try
-          rephrasing the question or selecting more documents.
-        </p>
-      )}
-
-      {isAssistant && visible.length > 0 && !notFound && (
-        <div className="mt-5 border-t border-border/60 pt-4">
-          <span className="label-xs">
-            {visible.length > 1 ? "Sources" : "Source"}
-          </span>
-
-          <div className="mt-2.5 space-y-2.5">
-            {visible.map((source) => (
-              <PrimarySource
-                key={`${source.label}-${source.documentId}-${source.pageNumber}`}
-                source={source}
-                onOpenSource={onOpenSource}
-              />
-            ))}
+      {isAssistant ? (
+        /* Answer card: the visual focus of the workspace. */
+        <div className="mt-2.5 overflow-hidden rounded-md border border-border bg-card">
+          <div
+            className={cn(
+              "whitespace-pre-wrap break-words px-4 py-4 text-[15px] leading-7",
+              notFound && "text-sm italic text-muted-foreground",
+            )}
+          >
+            {renderContent(message.content, sources, onOpenSource)}
           </div>
 
-          {hidden.length > 0 && (
-            <div className="mt-3">
-              <button
-                type="button"
-                onClick={() => setShowAllSources((value) => !value)}
-                className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
-                aria-expanded={showAllSources}
-              >
-                <ChevronDown
-                  className={cn(
-                    "size-3.5 transition-transform",
-                    showAllSources && "rotate-180",
-                  )}
-                  aria-hidden="true"
-                />
-                {showAllSources
-                  ? "Hide sources"
-                  : `View ${hidden.length} more source${hidden.length === 1 ? "" : "s"}`}
-              </button>
+          {notFound && (
+            <p className="px-4 pb-4 text-xs leading-5 text-muted-foreground">
+              No relevant passage was found in the selected documents. Try
+              rephrasing the question or selecting more documents.
+            </p>
+          )}
 
-              {showAllSources && (
-                <ul className="mt-2 space-y-1.5">
-                  {hidden.map((source) => (
-                    <li key={`${source.label}-${source.documentId}-${source.pageNumber}`}>
-                      <button
-                        type="button"
-                        onClick={() => onOpenSource(source)}
-                        className="w-full cursor-pointer rounded-sm border border-border/60 px-3 py-2 text-left transition-colors hover:border-border hover:bg-accent/40"
-                      >
-                        <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                          <span className="truncate text-foreground">
-                            {source.fileName}
-                          </span>
-                          <span className="ml-auto shrink-0 font-mono">
-                            Page {source.pageNumber}
-                          </span>
-                        </span>
-                        <span className="mt-1 block line-clamp-1 text-xs leading-5 text-muted-foreground">
-                          {source.snippet}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+          {visible.length > 0 && !notFound && (
+            <div className="border-t border-border/70 px-4 py-3.5">
+              <span className="label-xs">
+                {visible.length > 1 ? "Sources" : "Source"}
+              </span>
+
+              <div className="mt-3 space-y-4">
+                {visible.map((source) => (
+                  <PrimarySource
+                    key={`${source.label}-${source.documentId}-${source.pageNumber}`}
+                    source={source}
+                    onOpenSource={onOpenSource}
+                  />
+                ))}
+              </div>
+
+              {hidden.length > 0 && (
+                <div className="mt-3.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowAllSources((value) => !value)}
+                    className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+                    aria-expanded={showAllSources}
+                  >
+                    <ChevronDown
+                      className={cn(
+                        "size-3.5 transition-transform",
+                        showAllSources && "rotate-180",
+                      )}
+                      aria-hidden="true"
+                    />
+                    {showAllSources
+                      ? "Hide sources"
+                      : `View ${hidden.length} more source${hidden.length === 1 ? "" : "s"}`}
+                  </button>
+
+                  {showAllSources && (
+                    <ul className="mt-2.5 space-y-1.5">
+                      {hidden.map((source) => (
+                        <li
+                          key={`${source.label}-${source.documentId}-${source.pageNumber}`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() => onOpenSource(source)}
+                            className="w-full cursor-pointer rounded-sm border border-border/60 px-3 py-2 text-left transition-colors hover:border-border hover:bg-muted/60"
+                          >
+                            <span className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                              <span className="truncate text-foreground">
+                                {source.fileName}
+                              </span>
+                              <span className="ml-auto shrink-0 font-mono">
+                                Page {source.pageNumber}
+                              </span>
+                            </span>
+                            <span className="mt-1 block line-clamp-1 text-xs leading-5 text-muted-foreground">
+                              {source.snippet}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               )}
             </div>
           )}
+        </div>
+      ) : (
+        <div className="mt-2.5 whitespace-pre-wrap break-words text-sm leading-6 text-muted-foreground">
+          {message.content}
         </div>
       )}
     </article>

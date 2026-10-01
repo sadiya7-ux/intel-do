@@ -49,14 +49,14 @@ export function SourcePanel({
           </p>
         ) : (
           <>
-            <p className="mt-3 break-words text-sm font-medium leading-5">
+            <p className="mt-3 break-words text-sm font-semibold leading-5 text-foreground">
               {activeSource.fileName}
             </p>
-            <p className="mt-1 font-mono text-xs text-muted-foreground">
-              PAGE {String(activeSource.pageNumber).padStart(2, "0")}
+            <p className="mt-2 inline-flex w-fit items-center rounded-sm border border-border px-2 py-1 font-mono text-[11px] uppercase tracking-[0.1em] text-muted-foreground">
+              Page {String(activeSource.pageNumber).padStart(2, "0")}
             </p>
 
-            <div className="mt-3 max-h-[46vh] overflow-y-auto rounded-md border border-border/70 bg-card px-3 py-3">
+            <div className="mt-3 max-h-[46vh] overflow-y-auto rounded-md border border-border bg-card px-3 py-3">
               {page === undefined ? (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Loader2 className="size-3.5 animate-spin" />
@@ -72,7 +72,7 @@ export function SourcePanel({
                   No extractable text on this page.
                 </p>
               ) : (
-                <p className="whitespace-pre-wrap break-words text-xs leading-5 text-foreground">
+                <p className="whitespace-pre-wrap break-words text-xs leading-6 text-foreground">
                   {page.text}
                 </p>
               )}
@@ -101,10 +101,10 @@ export function SourcePanel({
                     type="button"
                     onClick={() => onOpenSource(source)}
                     className={cn(
-                      "w-full cursor-pointer rounded-md border px-3 py-2.5 text-left transition-colors",
+                      "w-full cursor-pointer rounded-md border bg-card px-3 py-2.5 text-left transition-colors",
                       isActive
-                        ? "border-foreground bg-accent/60"
-                        : "border-border/70 hover:border-border hover:bg-accent/40",
+                        ? "border-foreground bg-muted"
+                        : "border-border hover:border-foreground/40 hover:bg-muted/60",
                     )}
                   >
                     <span className="flex items-center gap-2 text-[11px] text-muted-foreground">

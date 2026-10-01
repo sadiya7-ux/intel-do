@@ -78,7 +78,7 @@ export default function Landing() {
       transition={{ duration: 0.4 }}
       className="min-h-screen bg-background"
     >
-      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-border bg-background">
         <div className="mx-auto flex h-14 max-w-5xl items-center justify-between gap-4 px-5">
           <Link
             to="/"
