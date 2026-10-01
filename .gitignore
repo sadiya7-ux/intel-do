@@ -1,4 +1,58 @@
-.env.local
-node_modules
-dist
-src/convex/_generated
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+dist/
+dist-ssr/
+build/
+*.local
+
+# Environment / secrets — NEVER commit these
+.env
+.env.*
+!.env.example
+
+# Convex
+.convex/
+convex/.env
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Test / coverage output
+coverage/
+.nyc_output/
+
+# Caches
+.eslintcache
+.cache/
+.vite/
+.turbo/
+.parcel-cache/
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Generated TypeScript build output
+*.tsbuildinfo
+tsconfig.tsbuildinfo
+
+# Platform-generated
+sst-env.d.ts
