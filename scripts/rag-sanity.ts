@@ -13,8 +13,14 @@ import {
   chunkPages,
   embedText,
   EMBEDDING_DIMS,
+  expandQuery,
   tokenize,
 } from "../src/convex/lib/text";
+import {
+  fuseCandidates,
+  LEXICAL_FLOOR,
+  VECTOR_FLOOR,
+} from "../src/convex/lib/retrieval";
 
 const PAGES = [
   {
@@ -47,6 +53,15 @@ The hull is constructed from carbon fibre reinforced polymer with a
 gel-coated finish. Battery packs use lithium iron phosphate cells chosen for
 thermal stability. The documented endurance is 45 days at cruising speed.`,
   },
+  {
+    pageNumber: 4,
+    text: `Project Schedule
+
+The submission deadline for the ASTRA project report is 1 October 2026.
+All deliverables must be uploaded before close of business on the due date.
+
+Late submissions are not accepted by the programme office.`,
+  },
 ];
 
 let failures = 0;
@@ -71,7 +86,7 @@ check(
 );
 check(
   "page numbers only come from the source pages",
-  chunks.every((chunk) => [1, 2, 3].includes(chunk.pageNumber)),
+  chunks.every((chunk) => [1, 2, 3, 4].includes(chunk.pageNumber)),
 );
 check(
   "chunks are within the size window",
@@ -108,7 +123,7 @@ check(
 
 console.log("\nBM25 + ranking");
 const query = "What are the limitations of the radar system?";
-const queryTokens = tokenize(query);
+const queryTokens = expandQuery(query).tokens;
 const scores = bm25Scores(
   queryTokens,
   chunks.map((chunk, index) => ({
@@ -125,9 +140,15 @@ check(
 );
 check("matched page 2 scores above the relevance floor", (scores[bestIndex] ?? 0) > 0.01);
 
-const offTopicTokens = tokenize("what is the capital of france");
+const offTopicQuery = "what is the capital of france";
+const offTopicExpanded = expandQuery(offTopicQuery);
+check(
+  "unrelated question gains no synonym expansions",
+  offTopicExpanded.added.length === 0,
+  `added=[${offTopicExpanded.added.join(", ")}]`,
+);
 const offTopicScores = bm25Scores(
-  offTopicTokens,
+  offTopicExpanded.tokens,
   chunks.map((chunk, index) => ({
     id: String(index),
     tokens: tokenize(chunk.text),
@@ -137,17 +158,101 @@ const offTopicScores = bm25Scores(
 const offTopicBest = Math.max(...offTopicScores, 0);
 const chunkVectors = chunks.map((chunk) => embedText(chunk.text));
 const offTopicVector = Math.max(
-  ...chunkVectors.map((vector) => cosine(embedText("what is the capital of france"), vector)),
+  ...chunkVectors.map((vector) => cosine(embedText(offTopicQuery), vector)),
 );
 check(
   "unrelated question scores below the lexical floor",
-  offTopicBest < 0.01,
+  offTopicBest < LEXICAL_FLOOR,
   `bm25=${offTopicBest.toFixed(4)}`,
 );
 check(
   "unrelated question scores below the vector floor",
-  offTopicVector < 0.14,
+  offTopicVector < VECTOR_FLOOR,
   `cosine=${offTopicVector.toFixed(3)}`,
+);
+
+const offTopicFusion = fuseCandidates({
+  chunks: chunks.map((chunk, index) => ({
+    id: String(index),
+    documentId: "doc-1",
+    pageNumber: chunk.pageNumber,
+    text: chunk.text,
+    lexicalScore: offTopicScores[index] ?? 0,
+    vectorScore: cosine(embedText(offTopicExpanded.text), chunkVectors[index]),
+  })),
+  fileNames: new Map([["doc-1", "ASTRA.pdf"]]),
+  queryTokens: offTopicExpanded.tokens,
+  limit: 6,
+});
+check(
+  "unrelated question retrieves nothing, so the refusal still fires",
+  offTopicFusion.length === 0,
+  `hits=${offTopicFusion.length}`,
+);
+
+console.log("\nParaphrase retrieval (query expansion)");
+const paraphrase = "What is the last date to submit the project?";
+const expanded = expandQuery(paraphrase);
+check(
+  "paraphrase expands to the deadline concept",
+  expanded.added.includes("deadline") && expanded.added.includes("submission"),
+  `added=[${expanded.added.join(", ")}]`,
+);
+
+const paraLexical = bm25Scores(
+  expanded.tokens,
+  chunks.map((chunk, index) => ({
+    id: String(index),
+    tokens: tokenize(chunk.text),
+    length: chunk.tokenCount,
+  })),
+);
+const paraVectorFor = (text: string) =>
+  chunks.map((chunk) => cosine(embedText(text), embedText(chunk.text)));
+const paraVectors = paraVectorFor(expanded.text);
+const fileNames = new Map([["doc-1", "ASTRA.pdf"]]);
+const fusionInput = (withVector: boolean) => ({
+  chunks: chunks.map((chunk, index) => ({
+    id: String(index),
+    documentId: "doc-1",
+    pageNumber: chunk.pageNumber,
+    text: chunk.text,
+    lexicalScore: paraLexical[index] ?? 0,
+    ...(withVector ? { vectorScore: paraVectors[index] } : {}),
+  })),
+  fileNames,
+  queryTokens: expanded.tokens,
+  limit: 6,
+});
+
+const paraphraseHits = fuseCandidates(fusionInput(true));
+check(
+  "retrieves the deadline page first",
+  paraphraseHits[0]?.pageNumber === 4,
+  `top page=${paraphraseHits[0]?.pageNumber} score=${paraphraseHits[0]?.score.toFixed(4)}`,
+);
+check(
+  "retrieved page contains the exact date from the PDF",
+  (paraphraseHits[0]?.text ?? "").includes("1 October 2026"),
+);
+check(
+  "citation keeps the document name and page number",
+  paraphraseHits[0]?.fileName === "ASTRA.pdf" &&
+    paraphraseHits[0]?.pageNumber === 4,
+  `file=${paraphraseHits[0]?.fileName} page=${paraphraseHits[0]?.pageNumber}`,
+);
+const page4Index = chunks.findIndex((chunk) => chunk.pageNumber === 4);
+check(
+  "deadline chunk scores above the lexical relevance floor",
+  (paraLexical[page4Index] ?? 0) >= LEXICAL_FLOOR,
+  `bm25=${(paraLexical[page4Index] ?? 0).toFixed(3)} (page 4 chunk)`,
+);
+
+const lexicalOnlyHits = fuseCandidates(fusionInput(false));
+check(
+  "kept by BM25 alone when semantic similarity is weak",
+  lexicalOnlyHits[0]?.pageNumber === 4,
+  `top page=${lexicalOnlyHits[0]?.pageNumber}`,
 );
 
 console.log(

@@ -68,6 +68,135 @@ export function tokenize(text: string): string[] {
   return tokens;
 }
 
+/**
+ * Concept groups for query expansion: paraphrases and common synonyms that
+ * describe the same concept. When a question contains any member of a group,
+ * every other member is added to the query before ranking, so "what is the
+ * last date to submit" also matches a document that says "submission
+ * deadline".
+ *
+ * Groups are deliberately tight and fire only on concepts the user actually
+ * asked about, so unrelated questions gain no expansion tokens, stay below
+ * the relevance floors, and the deterministic grounded refusal still runs.
+ */
+const SYNONYM_GROUPS: string[][] = [
+  // Deadlines / dates: "last date", "due date", "submission deadline"
+  [
+    "deadline",
+    "due",
+    "date",
+    "cutoff",
+    "submit",
+    "submission",
+    "deliverable",
+    "delivery",
+    "milestone",
+    "schedule",
+    "completion",
+    "final",
+    "last",
+  ],
+  // Authorship / ownership
+  [
+    "author",
+    "written",
+    "creator",
+    "created",
+    "developer",
+    "developed",
+    "publisher",
+    "owner",
+    "organisation",
+    "organization",
+    "manufacturer",
+  ],
+  // Purpose / objectives
+  ["purpose", "objective", "aim", "goal", "intent", "mission", "rationale"],
+  // Problems / risks / limitations
+  [
+    "problem",
+    "issue",
+    "risk",
+    "limitation",
+    "shortcoming",
+    "weakness",
+    "constraint",
+    "challenge",
+    "threat",
+  ],
+  // Results / findings / performance
+  ["result", "outcome", "finding", "performance", "metric", "capability", "accuracy"],
+  // Parts / components
+  ["component", "part", "subsystem", "module", "element", "assembly", "feature"],
+  // Cost / funding
+  ["cost", "price", "budget", "expense", "funding"],
+  // Method / approach
+  ["method", "approach", "technique", "procedure", "process", "methodology"],
+  // Requirements / specifications
+  ["requirement", "specification", "criterion", "criteria", "standard"],
+  // People / operators
+  ["user", "operator", "personnel", "crew", "analyst", "engineer", "staff"],
+  // Location
+  ["location", "place", "site", "region", "area", "country", "station"],
+  // Speed / timing
+  ["speed", "rate", "velocity", "throughput", "latency", "frequency"],
+  // Size / capacity
+  ["size", "dimension", "length", "width", "height", "weight", "capacity"],
+  // Testing / evaluation
+  [
+    "test",
+    "trial",
+    "exercise",
+    "evaluation",
+    "validation",
+    "assessment",
+    "verification",
+  ],
+];
+
+/** Hard cap so a fuzzy question can never flood BM25 with synonyms. */
+const MAX_EXPANSION_TOKENS = 24;
+
+export interface ExpandedQuery {
+  /** Original tokens followed by added synonyms (BM25 + snippet centre). */
+  tokens: string[];
+  /** The synonym tokens that were added (diagnostics and tests). */
+  added: string[];
+  /** Original query plus the added synonyms, ready for embedText(). */
+  text: string;
+}
+
+/**
+ * Normalises a question and expands it with synonyms from SYNONYM_GROUPS so
+ * paraphrased questions still match the wording used inside the document.
+ * When no concept matches, the query passes through unchanged so unrelated
+ * questions rank exactly as before.
+ */
+export function expandQuery(query: string): ExpandedQuery {
+  const base = tokenize(query);
+  const present = new Set(base);
+  const added: string[] = [];
+
+  for (const group of SYNONYM_GROUPS) {
+    if (added.length >= MAX_EXPANSION_TOKENS) break;
+    const members = group.map(stem);
+    if (!members.some((member) => present.has(member))) continue;
+    for (const member of members) {
+      if (added.length >= MAX_EXPANSION_TOKENS) break;
+      if (present.has(member)) continue;
+      present.add(member);
+      added.push(member);
+    }
+  }
+
+  const text = query.trim().replace(/\s+/g, " ");
+  return {
+    tokens: [...base, ...added],
+    added,
+    text: added.length > 0 ? `${text} ${added.join(" ")}` : text,
+  };
+}
+
 /** Fixes common PDF extraction artifacts (hyphenation, stray whitespace). */
 export function cleanPageText(text: string): string {
   return text
