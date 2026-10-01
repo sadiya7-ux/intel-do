@@ -17,6 +17,7 @@ import {
   tokenize,
 } from "../src/convex/lib/text";
 import {
+  chunkSignals,
   fuseCandidates,
   LEXICAL_FLOOR,
   VECTOR_FLOOR,
@@ -62,6 +63,55 @@ All deliverables must be uploaded before close of business on the due date.
 
 Late submissions are not accepted by the programme office.`,
   },
+  {
+    pageNumber: 5,
+    text: `The Three Challenges
+
+Pick ONE. Each is structured as:
+
+MUST HAVE — required for a valid submission
+
+SHOULD HAVE — demonstrates stronger engineering
+
+BONUS — demonstrates exceptional initiative (never mandatory)
+
+CHALLENGE 01 — ASTRA INTEL
+
+AI-Powered Defence Document Intelligence System
+
+Problem
+
+Defence and technology organizations handle large volumes of reports and PDFs.
+Finding relevant information manually is slow.`,
+  },
+  {
+    pageNumber: 6,
+    text: `MUST HAVE
+
+1. Upload a PDF/document.
+
+2. Extract and process its content.
+
+3. Generate a concise summary.
+
+4. Let the user ask questions about the uploaded document.
+
+5. Answer based only on the provided document.
+
+SHOULD HAVE
+
+Usable interface with basic error states. Multi-turn conversation with visible
+history. Page-level citations on answers.
+
+BONUS — demonstrates exceptional initiative (never mandatory)
+
+8.7 Final Submission Checklist
+
+Before submitting, verify:
+
+GitHub repository submitted. Project runs successfully. README completed.
+Architecture diagram included.`,
+  },
 ];
 
 let failures = 0;
@@ -86,7 +136,7 @@ check(
 );
 check(
   "page numbers only come from the source pages",
-  chunks.every((chunk) => [1, 2, 3, 4].includes(chunk.pageNumber)),
+  chunks.every((chunk) => [1, 2, 3, 4, 5, 6].includes(chunk.pageNumber)),
 );
 check(
   "chunks are within the size window",
@@ -253,6 +303,75 @@ check(
   "kept by BM25 alone when semantic similarity is weak",
   lexicalOnlyHits[0]?.pageNumber === 4,
   `top page=${lexicalOnlyHits[0]?.pageNumber}`,
+);
+
+console.log("\nSection headings (structured questions)");
+/** Runs the production retrieval pipeline over the fixture corpus. */
+function runRetrieval(question: string) {
+  const signals = chunkSignals({
+    chunkTexts: chunks.map((chunk) => chunk.text),
+    pageNumbers: chunks.map((chunk) => chunk.pageNumber),
+    tokenCounts: chunks.map((chunk) => chunk.tokenCount),
+    query: question,
+  });
+  return fuseCandidates({
+    chunks: chunks.map((chunk, index) => ({
+      id: String(index),
+      documentId: "doc-1",
+      pageNumber: chunk.pageNumber,
+      text: chunk.text,
+      lexicalScore: signals.lexicalScores[index] ?? 0,
+      vectorScore: cosine(embedText(signals.expandedText), embedText(chunk.text)),
+      headingScore: signals.headingScores[index] ?? 0,
+    })),
+    fileNames: new Map([["doc-1", "ASTRA.pdf"]]),
+    queryTokens: signals.expandedTokens,
+    limit: 6,
+  });
+}
+
+const mustHave = runRetrieval("What are the MUST-HAVE features for ASTRA INTEL?");
+check(
+  "MUST-HAVE question retrieves a MUST HAVE section first",
+  mustHave[0]?.text.includes("MUST HAVE") === true,
+  `top page=${mustHave[0]?.pageNumber}`,
+);
+check(
+  "the associated MUST-HAVE list is in the retrieved passages",
+  mustHave.some((hit) => hit.text.includes("Upload a PDF")),
+  `pages=${mustHave.map((hit) => hit.pageNumber).join(",")}`,
+);
+check(
+  "MUST-HAVE citation keeps document name and page",
+  mustHave[0]?.fileName === "ASTRA.pdf" && mustHave[0]?.pageNumber > 0,
+);
+
+const bonus = runRetrieval("What are the bonus features?");
+check(
+  "bonus question retrieves the BONUS section",
+  bonus[0]?.text.includes("BONUS") === true,
+  `top page=${bonus[0]?.pageNumber}`,
+);
+
+const submission = runRetrieval("What should the final submission contain?");
+check(
+  "final submission question retrieves the submission checklist",
+  submission[0]?.text.includes("Final Submission Checklist") === true,
+  `top page=${submission[0]?.pageNumber}`,
+);
+
+const deadline = runRetrieval("What is the submission deadline?");
+check(
+  "deadline question retrieves the deadline page",
+  deadline[0]?.pageNumber === 4,
+  `top page=${deadline[0]?.pageNumber}`,
+);
+
+const japan = runRetrieval("What is the population of Japan?");
+check(
+  "off-document question retrieves nothing, so refusal still fires",
+  japan.length === 0,
+  `hits=${japan.length}`,
 );
 
 console.log(

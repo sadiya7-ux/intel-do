@@ -197,6 +197,203 @@ export function expandQuery(query: string): ExpandedQuery {
   };
 }
 
+/** Raw lowercase words of a chunk, stopwords kept, for term corroboration. */
+export function rawWords(text: string): Set<string> {
+  return new Set(text.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean));
+}
+
+/** Normalises a heading or heading term to comparable uppercase words. */
+export function normalizeHeading(value: string): string {
+  return value
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+}
+
+const MAX_HEADING_CHARS = 120;
+
+/**
+ * Detects section headings inside a chunk so a question about a named section
+ * ("MUST HAVE", "Final Submission Checklist") can be matched against the real
+ * heading instead of general body text.
+ *
+ * Handles the formats PDF extraction produces: standalone all-caps headings,
+ * all-caps prefixes followed by an em dash or colon, numbered title-case
+ * headings, and short lines that introduce a list.
+ */
+export function extractHeadings(text: string): string[] {
+  const headings: string[] = [];
+
+  for (const rawLine of text.split("\n")) {
+    const line = rawLine.replace(/\s+/g, " ").trim();
+    if (line.length === 0 || line.length > MAX_HEADING_CHARS) continue;
+
+    // Strip list numbering: "8.7 Final Submission Checklist" -> heading body.
+    const body = line.replace(/^\d+(?:\.\d+)*[.)]?\s*/, "").trim();
+    if (body.length < 3) continue;
+
+    // All-caps heading, optionally followed by a dash/colon or body text:
+    // "MUST HAVE", "BONUS — demonstrates ...", "DEADLINE All required ...".
+    const caps = /^([A-Z][A-Z0-9]*(?:[ \-/&'][A-Z0-9]+){0,5})(?=$|\s+[—–:-]|\s{2,}|\s+[a-zA-Z])/.exec(
+      body,
+    );
+    if (caps && caps[1].length >= 3) {
+      headings.push(normalizeHeading(caps[1]));
+      continue;
+    }
+
+    // Short line that introduces a list.
+    if (/[:—–]$/.test(body) && body.length <= 60) {
+      headings.push(normalizeHeading(body.replace(/[:—–\s]+$/, "")));
+      continue;
+    }
+
+    // Short title-case line, typically a numbered section heading such as
+    // "8.7 Final Submission Checklist" or "Radar Systems". Sentences and list
+    // items are excluded by the word count and the trailing period.
+    const words = body.split(" ");
+    const letters = body.replace(/[^a-zA-Z]/g, "");
+    const capitalised = words.filter(
+      (word) => /^[A-Z0-9]/.test(word) && word.replace(/[^a-zA-Z]/g, "").length >= 2,
+    ).length;
+    if (
+      words.length <= 8 &&
+      words.length >= 1 &&
+      body.length <= 60 &&
+      letters.length >= 4 &&
+      !body.endsWith(".") &&
+      capitalised >= Math.ceil(words.length * 0.6)
+    ) {
+      headings.push(normalizeHeading(body));
+    }
+  }
+
+  return headings.filter((heading) => heading.length > 1);
+}
+
+/**
+ * All-caps (or hyphenated all-caps) phrases in a question: "MUST-HAVE",
+ * "ASTRA INTEL", "DEADLINE". These are the words a user copies out of a
+ * section heading, so they carry a strong signal about which section to read.
+ */
+export function extractHeadingTerms(query: string): string[] {
+  const terms: string[] = [];
+  const pattern = /\b[A-Z][A-Z0-9]*(?:[ \-/&'][A-Z0-9]+)*\b/g;
+
+  for (const match of query.matchAll(pattern)) {
+    const words = normalizeHeading(match[0]).split(" ").filter(Boolean);
+    if (words.length === 0 || words.length > 3) continue;
+    // "WHAT ARE THE" from a shouted question is not a section name.
+    if (words.length > 2 && words.every((word) => STOPWORDS.has(word.toLowerCase()))) {
+      continue;
+    }
+    const term = words.join(" ");
+    if (!terms.includes(term)) terms.push(term);
+  }
+  return terms;
+}
+
+/** True when the chunk holds real list content, i.e. a section body. */
+export function hasListBody(text: string): boolean {
+  let items = 0;
+  for (const rawLine of text.split("\n")) {
+    const match = /^\s*(?:\d+[.)]|[-*•‣▪◦☐☑☒□■–])\s+(\S.*)$/.exec(rawLine);
+    if (!match) continue;
+    // "6. The Three Challenges" is a numbered heading, not a list item.
+    const words = match[1].split(" ");
+    const capitalised = words.filter(
+      (word) => /^[A-Z0-9]/.test(word) && word.replace(/[^a-zA-Z]/g, "").length >= 2,
+    ).length;
+    if (capitalised < Math.ceil(words.length * 0.6)) items += 1;
+    if (items >= 2) return true;
+  }
+  return false;
+}
+
+/**
+ * How strongly a chunk looks like the section the question asked about.
+ *
+ * An exact heading-term match (all of its words present in the chunk's
+ * headings) scores 1.0, then scales up slightly for further terms. Distinctive
+ * question tokens that appear in a heading contribute a weaker partial score,
+ * which lets questions phrased in lower case ("the bonus features") still
+ * prefer the BONUS section.
+ *
+ * Two refinements separate a real section from an incidental mention:
+ *   - `hasBody`: the chunk actually holds the section's content (list items),
+ *     so "MUST HAVE" plus its list beats a lone "ASTRA INTEL" label.
+ *   - `chunkWords`: the remaining heading terms appearing anywhere in the
+ *     chunk text corroborate which section the question meant.
+ */
+export function matchHeadings(args: {
+  headings: string[];
+  terms: string[];
+  tokens: string[];
+  rareTokens?: Set<string>;
+  /** Fraction of the question's tokens that appear in this chunk's text. */
+  coverage?: number;
+  hasBody?: boolean;
+  chunkWords?: Set<string>;
+}): number {
+  const { headings, terms, tokens, rareTokens, coverage, hasBody, chunkWords } = args;
+  if (headings.length === 0) return 0;
+
+  // Headings are raw words while query tokens are stemmed, so compare both
+  // sides in the same stemmed space ("FEATURES" -> "feature").
+  const stemmed = headings.map((heading) =>
+    new Set(heading.split(" ").map((word) => stem(word.toLowerCase()))),
+  );
+  const hasWords = (words: string[]) => {
+    const wanted = words.map((word) => stem(word.toLowerCase()));
+    return stemmed.some((set) => wanted.every((word) => set.has(word)));
+  };
+  const mentionsAll = (term: string, words: Set<string>) =>
+    term.split(" ").every((word) => words.has(word.toLowerCase()));
+
+  let score = 0;
+  let matchedSectionName = false;
+  const matchedTerms = terms.filter((term) => hasWords(term.split(" ")));
+  if (matchedTerms.length > 0) {
+    matchedSectionName = true;
+    // Naming one section outright is already a strong signal; matching every
+    // heading term (e.g. both "MUST-HAVE" and "ASTRA INTEL") is stronger.
+    score = matchedTerms.length === terms.length ? 1 : 0.9;
+    if (score < 1 && chunkWords && terms.every((term) => mentionsAll(term, chunkWords))) {
+      score = Math.min(1, score + 0.05);
+    }
+  } else if (tokens.length > 0) {
+    // How many question tokens a single heading covers. Two or more is a strong
+    // signal that the question named this section ("final submission" ->
+    // "Final Submission Checklist"); one is a weak hint, unless that token
+    // names only one heading in the whole corpus ("DEADLINE").
+    let best = 0;
+    let bestToken = "";
+    for (const set of stemmed) {
+      const found = tokens.filter((token) => set.has(token));
+      if (found.length > best) {
+        best = found.length;
+        bestToken = found[0] ?? "";
+      }
+    }
+    if (best >= 2) {
+      score = Math.min(1, 0.75 + 0.25 * (best / tokens.length));
+    } else if (best === 1) {
+      // A rare heading name only decides the answer when the chunk also covers
+      // the rest of the question; otherwise it is just a hint.
+      const rare =
+        (rareTokens?.has(bestToken) ?? false) && (coverage ?? 0) >= 0.999;
+      score = rare ? 0.75 : 0.5 * (best / tokens.length);
+    }
+  }
+
+  if (score === 0) return 0;
+  // A heading the user typed out loud with no section content in this chunk (a
+  // brand name in a list of names, a summary line) is not the section meant.
+  // Distinctive-token matches are exempt: short sections such as DEADLINE have
+  // no list body but are still the right passage.
+  return hasBody === false && matchedSectionName ? score * 0.5 : score;
+}
+
 /** Fixes common PDF extraction artifacts (hyphenation, stray whitespace). */
 export function cleanPageText(text: string): string {
   return text
