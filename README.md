@@ -91,27 +91,17 @@ Grounded Answer              (sanitised: unknown labels/out-of-range pages remov
 Page-Level Citations         (sources come from retrieval, never from the model)
 ```
 
-```mermaid
-flowchart TD
-    U[User] --> UP[PDF Upload<br/>validate · progress · errors]
-    UP --> EX[PDF Text Extraction<br/>pdfjs in browser, page numbers kept]
-    EX --> CH[Page-Aware Chunking<br/>pages → passages]
-    CH --> EM[Embeddings<br/>hashing-v1 · 2048-d]
-    EM --> VI[(Convex vector index<br/>chunks.by_embedding)]
-    CH --> PG[(pages table<br/>page text for the viewer)]
 
-    Q[Question / Search query] --> RT{Hybrid retrieval}
-    RT --> BM[BM25 lexical scoring]
-    RT --> VS[Vector search<br/>filtered by selected documents]
-    BM --> RF[Reciprocal rank fusion + relevance floor]
-    VS --> RF
-    RF -->|no hits| NF[Deterministic refusal<br/>"information not found"]
-    RF -->|hits| PR[Prompt: labelled context S1…Sn<br/>+ conversation history]
-    PR --> LLM[LLM · server-side API key]
-    LLM --> SAN[Sanitise: unknown labels,<br/>out-of-range pages]
-    SAN --> ANS[Grounded answer + sources]
-    ANS --> UI[Chat with clickable page citations]
-    PG --> UI
+
+    ```mermaid
+flowchart TD
+    A[PDF Upload] --> B[Document Processing]
+    B --> C[Page Aware Chunks]
+    C --> D[Hybrid Retrieval]
+    D --> E[AI Model]
+    E --> F[Grounded Answer]
+    F --> G[Page Citation]
+    E --> H[Grounded Refusal]
 ```
 
 ### Data model (Convex)
