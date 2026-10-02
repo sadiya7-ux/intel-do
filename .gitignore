@@ -56,3 +56,5 @@ tsconfig.tsbuildinfo
 
 # Platform-generated
 sst-env.d.ts
+.vercel
+.env*
